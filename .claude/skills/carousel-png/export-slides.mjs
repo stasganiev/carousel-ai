@@ -7,7 +7,8 @@
 // Запуск (из рабочей папки проекта):
 //   node <папка этого скилла>/export-slides.mjs <путь-к-html> [папка-вывода]
 //
-// Браузер ищется по порядку: Chrome, Edge, Chromium из кэша Playwright, chromium/google-chrome из PATH.
+// Браузер ищется по порядку: Chrome, Edge, Chromium из кэша Playwright, chromium/google-chrome из PATH,
+// браузер из папки .browsers рядом со скриптом.
 // Принудительно: CAROUSEL_BROWSER=chrome | msedge | playwright | <путь к исполняемому файлу>.
 //
 // Что делает:
@@ -20,7 +21,9 @@
 
 import path from 'node:path';
 import fs from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import os from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 
 let chromium;
 try {
@@ -31,42 +34,96 @@ try {
   process.exit(3);
 }
 
+const SKILL_DIR = path.dirname(fileURLToPath(import.meta.url));
+// Браузер, положенный прямо в папку скилла: нужен средам, где своего браузера нет и скачать его нельзя (песочница Cowork).
+const LOCAL_BROWSERS = path.join(SKILL_DIR, '.browsers');
+// Системные библиотеки для этого браузера (в минимальных Linux-средах их нет).
+const LOCAL_LIBS = path.join(LOCAL_BROWSERS, 'libs-linux64');
+
 // Запускаем первый доступный браузер. Ничего не скачиваем.
 async function launchBrowser() {
   const forced = process.env.CAROUSEL_BROWSER;
-  const fromPath = ['chromium', 'chromium-browser', 'google-chrome', 'google-chrome-stable']
+  const win = process.platform === 'win32';
+  const linux = process.platform === 'linux';
+  const args = linux ? ['--disable-dev-shm-usage', '--disable-gpu'] : [];
+  const exeNames = new Set(win
+    ? ['chrome.exe', 'chrome-headless-shell.exe']
+    : ['chrome', 'chromium', 'Chromium', 'headless_shell', 'chrome-headless-shell']);
+  const find = roots => {
+    const found = [];
+    const walk = (dir, depth) => {
+      if (depth > 6) return;
+      let items = [];
+      try { items = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+      for (const it of items) {
+        const p = path.join(dir, it.name);
+        if (it.isDirectory()) walk(p, depth + 1);
+        else if (exeNames.has(it.name)) found.push(p);
+      }
+    };
+    roots.filter(d => d && fs.existsSync(d)).forEach(d => walk(d, 0));
+    return found;
+  };
+  const fromPath = win ? [] : ['chromium', 'chromium-browser', 'google-chrome', 'google-chrome-stable']
     .flatMap(name => (process.env.PATH || '').split(path.delimiter).map(dir => path.join(dir, name)))
     .filter(p => fs.existsSync(p));
-  // Chromium, уже лежащий в кэше Playwright любой версии (в том числе в облачных песочницах: /opt/pw-browsers).
+  // Chromium из кэша Playwright любой версии (в облачных песочницах: /opt/pw-browsers).
   const home = process.env.HOME || process.env.USERPROFILE || '';
-  const cacheDirs = [process.env.PLAYWRIGHT_BROWSERS_PATH, '/opt/pw-browsers', path.join(home, '.cache', 'ms-playwright'),
-    path.join(home, 'Library', 'Caches', 'ms-playwright'), process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'ms-playwright')]
-    .filter(d => d && fs.existsSync(d));
-  const exeNames = new Set(['chrome', 'chrome.exe', 'chromium', 'Chromium', 'headless_shell', 'chrome-headless-shell', 'chrome-headless-shell.exe']);
-  const fromCache = [];
-  const walk = (dir, depth) => {
-    if (depth > 6) return;
-    let items = [];
-    try { items = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-    for (const it of items) {
-      const p = path.join(dir, it.name);
-      if (it.isDirectory()) walk(p, depth + 1);
-      else if (exeNames.has(it.name)) fromCache.push(p);
-    }
-  };
-  cacheDirs.forEach(d => walk(d, 0));
+  const cached = find([process.env.PLAYWRIGHT_BROWSERS_PATH, '/opt/pw-browsers', path.join(home, '.cache', 'ms-playwright'),
+    path.join(home, 'Library', 'Caches', 'ms-playwright'), process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'ms-playwright')]);
+  const bundled = find([LOCAL_BROWSERS]);
+
   const candidates = forced
     ? [/^(chrome|msedge)$/.test(forced) ? { channel: forced } : forced === 'playwright' ? {} : { executablePath: forced }]
-    : [{ channel: 'chrome' }, { channel: 'msedge' }, {}, ...[...fromPath, ...fromCache].map(executablePath => ({ executablePath }))];
-  for (const opts of candidates) {
+    : [{ channel: 'chrome' }, { channel: 'msedge' }, {},
+       ...[...fromPath, ...bundled, ...cached].map(executablePath => ({ executablePath }))];
+
+  const errors = [];
+  const libEnv = dir => ({ ...process.env, LD_LIBRARY_PATH: [dir, process.env.LD_LIBRARY_PATH].filter(Boolean).join(':') });
+  const tryLaunch = async (opts, label, env) => {
     try {
-      const b = await chromium.launch(opts);
-      console.log('Браузер: ' + (opts.channel || opts.executablePath || 'Chromium из кэша Playwright'));
+      if (opts.executablePath && !win) { try { fs.chmodSync(opts.executablePath, 0o755); } catch { /* файловая система может не разрешать */ } }
+      const b = await chromium.launch({ ...opts, args, ...(env ? { env } : {}) });
+      console.log('Браузер: ' + label);
       return b;
-    } catch { /* пробуем следующий */ }
+    } catch (e) {
+      const lines = String(e.message || e).split('\n').map(s => s.trim()).filter(Boolean);
+      const why = lines.find(s => /shared librar|cannot open|EACCES|ENOENT|Permission denied|not found|GLIBC/i.test(s)) || lines[0] || 'неизвестная ошибка';
+      errors.push(`${label}: ${why.slice(0, 220)}`);
+      // Для Linux-браузера перечисляем все недостающие системные библиотеки разом.
+      if (linux && opts.executablePath) {
+        try {
+          const out = execFileSync('ldd', [opts.executablePath], { env: env || process.env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+          const missing = out.split(/\r?\n/).filter(l => l.includes('not found')).map(l => l.trim().split(' ')[0]);
+          if (missing.length) errors.push('    не хватает библиотек: ' + [...new Set(missing)].join(', '));
+        } catch { /* ldd недоступен */ }
+      }
+      return null;
+    }
+  };
+
+  for (const opts of candidates) {
+    const label = opts.channel || opts.executablePath || 'Chromium из кэша Playwright';
+    const isBundled = !win && opts.executablePath && opts.executablePath.startsWith(LOCAL_BROWSERS);
+    let b = await tryLaunch(opts, label, isBundled && fs.existsSync(LOCAL_LIBS) ? libEnv(LOCAL_LIBS) : undefined);
+    // Браузер из папки проекта может лежать на диске, где запуск программ запрещён, — пробуем из временной папки.
+    if (!b && isBundled) {
+      try {
+        const srcDir = path.dirname(opts.executablePath);
+        const tmpDir = path.join(os.tmpdir(), 'carousel-browser', path.basename(srcDir));
+        if (!fs.existsSync(tmpDir)) fs.cpSync(srcDir, tmpDir, { recursive: true });
+        const tmpLibs = path.join(os.tmpdir(), 'carousel-browser', 'libs-linux64');
+        if (fs.existsSync(LOCAL_LIBS) && !fs.existsSync(tmpLibs)) fs.cpSync(LOCAL_LIBS, tmpLibs, { recursive: true });
+        const exe = path.join(tmpDir, path.basename(opts.executablePath));
+        b = await tryLaunch({ executablePath: exe }, exe + ' (копия во временной папке)', fs.existsSync(tmpLibs) ? libEnv(tmpLibs) : undefined);
+      } catch (e) { errors.push('копирование во временную папку: ' + String(e.message || e).split('\n')[0]); }
+    }
+    if (b) return b;
   }
-  console.error('БРАУЗЕР НЕ НАЙДЕН: на этом компьютере нет Chrome, Edge или Chromium.');
-  console.error('Автоматический экспорт невозможен. Сообщи пользователю и предложи установить Chrome или Edge.');
+  console.error('БРАУЗЕР НЕ НАЙДЕН: в этой среде нет рабочего Chrome, Edge или Chromium.');
+  console.error('Что пробовали:');
+  errors.forEach(e => console.error('  — ' + e));
+  console.error('Автоматический экспорт невозможен. Сообщи пользователю причину.');
   process.exit(4);
 }
 
