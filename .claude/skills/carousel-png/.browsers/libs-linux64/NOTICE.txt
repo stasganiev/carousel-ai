@@ -5,3 +5,4 @@
   libnspr4 4.35      — Mozilla Public License 2.0
   libnss3 3.98       — Mozilla Public License 2.0
   libasound2 1.2.6.1 — GNU LGPL 2.1
+  libxdamage1 1.1.5  — MIT (X11)
