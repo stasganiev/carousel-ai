@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Карусель — шаблон 1080×1350</title>
+<!--
+  ШАБЛОН КАРУСЕЛИ INSTAGRAM, 1080×1350 (4:5).
+  Как использовать: скопируй в posts/<slug>/carousel.html, замени токены в блоке 1 (бренд или пресет
+  из references/styles.md), подключи шрифты стиля, собери слайды из раскладок ниже, впиши ник в USER.
+  Номера слайдов, полоса прогресса, ник и неразрывные пробелы расставляются скриптом автоматически.
+-->
+<!-- Шрифты локальные: папки из fonts/ скилла копируются в posts/<slug>/fonts/. Интернет для вёрстки не нужен. -->
+<link rel="stylesheet" href="fonts/manrope/font.css">
+<link rel="stylesheet" href="fonts/inter/font.css">
+<style>
+  /* ===== 1. ТОКЕНЫ — меняется только этот блок ===== */
+  :root{
+    --bg:#F5F2EC;      --fg:#15171C;      --muted:#666B76;      --card:#FFFFFF;  --line:rgba(21,23,28,.14);
+    --bg-alt:#15171C;  --fg-alt:#F5F2EC;  --muted-alt:#A6ABB6;  --card-alt:#23262E; --line-alt:rgba(245,242,236,.18);
+    --accent:#FF5A1F;  --on-accent:#FFFFFF;      /* акцент на основном фоне */
+    --accent-alt:#FF5A1F;  --on-accent-alt:#FFFFFF;  /* акцент на контрастном фоне (--bg-alt) */
+    --font-head:'Manrope',sans-serif;  --font-body:'Inter',sans-serif;
+    --head-weight:800;  --head-tracking:-0.03em;  --radius:32px;
+  }
+
+  /* ===== 2. ОБОЛОЧКА ПРЕВЬЮ (в PNG не попадает) ===== */
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#1b1b1d;font-family:var(--font-body);min-height:100vh;display:flex;flex-direction:column;
+    align-items:center;padding:32px 20px;gap:20px;}
+  .viewer{width:432px;height:540px;position:relative;border-radius:10px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+  .slide{width:1080px;height:1350px;transform:scale(.4);transform-origin:top left;position:absolute;top:0;left:0;display:none;}
+  .slide.active{display:block;}
+  .nav{display:flex;align-items:center;gap:20px;color:#eee;font-size:15px;letter-spacing:.1em;}
+  .nav button{width:44px;height:44px;border-radius:50%;border:1px solid #444;background:#2a2a2a;color:#fff;font-size:19px;cursor:pointer;}
+
+  /* ===== 3. СЛАЙД ===== */
+  .s{width:1080px;height:1350px;position:relative;overflow:hidden;display:flex;flex-direction:column;
+    padding:72px 72px 60px;background:var(--c-bg);color:var(--c-fg);font-family:var(--font-body);
+    --c-bg:var(--bg); --c-fg:var(--fg); --c-muted:var(--muted); --c-card:var(--card); --c-line:var(--line);
+    --c-accent:var(--accent); --c-on-accent:var(--on-accent);}
+  .s.alt{--c-bg:var(--bg-alt); --c-fg:var(--fg-alt); --c-muted:var(--muted-alt); --c-card:var(--card-alt); --c-line:var(--line-alt);
+    --c-accent:var(--accent-alt,var(--accent)); --c-on-accent:var(--on-accent-alt,var(--on-accent));}
+  .s.accent{--c-bg:var(--accent); --c-fg:var(--on-accent); --c-muted:color-mix(in srgb,var(--on-accent) 78%,transparent);
+    --c-card:color-mix(in srgb,var(--on-accent) 14%,transparent); --c-line:color-mix(in srgb,var(--on-accent) 30%,transparent);
+    --c-accent:var(--on-accent); --c-on-accent:var(--accent);}
+
+  /* шапка: только слева — правый верхний угол в ленте закрыт счётчиком Instagram */
+  .head{display:flex;align-items:center;gap:18px;height:40px;font-size:26px;font-weight:600;letter-spacing:.06em;color:var(--c-muted);}
+  .head .num{color:var(--c-fg);font-variant-numeric:tabular-nums;}
+  .head .tag{text-transform:uppercase;}
+  .main{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:36px;padding:44px 0;}
+  .main.top{justify-content:flex-start;}
+  .main.bottom{justify-content:flex-end;}
+  .main.spread{justify-content:space-between;}
+  .foot{display:flex;align-items:center;gap:28px;font-size:28px;font-weight:600;color:var(--c-muted);}
+  .foot .bar{flex:1;height:6px;border-radius:6px;background:var(--c-line);overflow:hidden;}
+  .foot .bar i{display:block;height:100%;border-radius:6px;background:var(--c-accent);}
+  .foot .next{color:var(--c-fg);}
+  .foot .user:empty{display:none;}   /* ник не задан — полоса прогресса занимает его место */
+
+  /* ===== 4. ТИПОГРАФИКА ===== */
+  h1,h2,.big,.quote,.btn{font-family:var(--font-head);font-weight:var(--head-weight);letter-spacing:var(--head-tracking);}
+  h1,h2{text-wrap:balance;}   /* длинное слово не рвём: экспорт сообщит, что оно не влезло, — тогда уменьши кегль (.sm) */
+  h1{font-size:112px;line-height:1.0;}
+  h1.sm{font-size:92px;}
+  h2{font-size:70px;line-height:1.06;}
+  h2.sm{font-size:58px;}
+  h1 em,h2 em,.quote em{font-style:normal;color:var(--c-accent);}
+  p,li{font-size:40px;line-height:1.36;text-wrap:pretty;}
+  .lead{font-size:44px;line-height:1.28;font-weight:500;color:var(--c-muted);}
+  .note{font-size:30px;line-height:1.35;color:var(--c-muted);}
+  b,strong{font-weight:700;}
+  mark{background:var(--c-accent);color:var(--c-on-accent);padding:0 .16em;border-radius:.18em;}
+  .kicker{align-self:flex-start;font-size:26px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    padding:12px 22px;border-radius:999px;background:var(--c-accent);color:var(--c-on-accent);}
+
+  /* ===== 5. БЛОКИ ===== */
+  .list,.steps{list-style:none;display:flex;flex-direction:column;gap:26px;}
+  .list li,.steps li{display:flex;gap:24px;align-items:flex-start;}
+  .list li::before{content:"";flex:0 0 18px;height:18px;margin-top:.48em;border-radius:50%;background:var(--c-accent);}
+  /* галочка и крестик нарисованы масками, а не символами: не зависят от шрифтов компьютера */
+  .list.ok li::before,.list.no li::before{flex-basis:48px;height:48px;margin-top:.06em;border-radius:0;
+    -webkit-mask:var(--ico) center/contain no-repeat;mask:var(--ico) center/contain no-repeat;}
+  .list.ok li::before{background:var(--c-accent);
+    --ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpath fill-rule='evenodd' d='M24 0a24 24 0 1 0 0 48a24 24 0 0 0 0-48zM12.6 24.6l8 8.2L36 16.2l-3.4-3.2-12.1 13-4.6-4.7z'/%3E%3C/svg%3E");}
+  .list.no li::before{background:var(--c-muted);
+    --ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' fill='none' stroke='black' stroke-width='3.5' stroke-linecap='round'%3E%3Ccircle cx='24' cy='24' r='21.5'/%3E%3Cpath d='M16.5 16.5l15 15M31.5 16.5l-15 15'/%3E%3C/svg%3E");}
+  .steps{counter-reset:st;gap:30px;}
+  .steps li{counter-increment:st;}
+  .steps li::before{content:counter(st);flex:0 0 68px;height:68px;border-radius:50%;background:var(--c-accent);color:var(--c-on-accent);
+    font-family:var(--font-head);font-weight:800;font-size:32px;display:flex;align-items:center;justify-content:center;}
+  .steps li b{display:block;}
+  .big{font-size:300px;line-height:.86;color:var(--c-accent);}
+  .big small{font-size:.42em;}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+  .card{background:var(--c-card);border:2px solid var(--c-line);border-radius:var(--radius);padding:36px 34px;
+    display:flex;flex-direction:column;gap:18px;}
+  .card.hot{background:var(--c-accent);border-color:transparent;color:var(--c-on-accent);}
+  .card .label{font-size:26px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.7;}
+  .card p,.card li{font-size:34px;line-height:1.32;}
+  .quote{font-size:60px;line-height:1.16;padding-left:36px;border-left:10px solid var(--c-accent);text-wrap:balance;}
+  .btn{align-self:flex-start;font-size:40px;padding:30px 46px;border-radius:999px;background:var(--c-accent);color:var(--c-on-accent);}
+  /* картинка блоком */
+  .photo{flex:1;min-height:0;border-radius:var(--radius);overflow:hidden;}
+  .photo img{width:100%;height:100%;object-fit:cover;display:block;}
+  /* картинка на весь слайд: <div class="s bleed"><div class="bg"><img></div>… */
+  .s.bleed{--c-fg:#fff;--c-muted:rgba(255,255,255,.82);--c-line:rgba(255,255,255,.3);}
+  .s.bleed>*:not(.bg){position:relative;z-index:1;}
+  .bg{position:absolute;inset:0;}
+  .bg img{width:100%;height:100%;object-fit:cover;display:block;}
+  .bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.25) 0%,rgba(0,0,0,.08) 35%,rgba(0,0,0,.82) 100%);}
+</style>
+</head>
+<body>
+
+<div class="viewer">
+
+  <!-- РАСКЛАДКА: обложка -->
+  <div class="slide"><div class="s">
+    <div class="head"><span class="num"></span><span class="tag">Тема</span></div>
+    <div class="main">
+      <span class="kicker">Разбор</span>
+      <h1>5 ошибок в&nbsp;ценнике, из-за которых <em>не покупают</em></h1>
+      <p class="lead">Проверь свой прайс за две минуты</p>
+    </div>
+    <div class="foot"><span class="user"></span><span class="bar"><i></i></span><span class="next"></span></div>
+  </div></div>
+
+  <!-- РАСКЛАДКА: тезис (заголовок + текст), контрастный фон -->
+  <div class="slide"><div class="s alt">
+    <div class="head"><span class="num"></span><span class="tag">Тема</span></div>
+    <div class="main">
+      <h2>Клиент видит цену и уходит. <em>Молча</em></h2>
+      <p>Он не спорит и не торгуется. Он закрывает страницу, и вы об этом не узнаёте.</p>
+      <p class="note">Дальше — пять причин и как их убрать.</p>
+    </div>
+    <div class="foot"><span class="user"></span><span class="bar"><i></i></span><span class="next"></span></div>
+  </div></div>
+
+  <!-- РАСКЛАДКА: список (варианты маркеров: .list, .list.ok, .list.no) -->
+  <div class="slide"><div class="s">
+    <div class="head"><span class="num"></span><span class="tag">Тема</span></div>
+    <div class="main">
+      <h2>Что проверить в прайсе</h2>
+      <ul class="list ok">
+        <li><span>Цена стоит рядом с результатом, а не с перечнем работ</span></li>
+        <li><span>У каждого тарифа одно понятное отличие</span></li>
+        <li><span>Есть вариант «подешевле» для сомневающихся</span></li>
+      </ul>
+    </div>
+    <div class="foot"><span class="user"></span><span class="bar"><i></i></span><span class="next"></span></div>
+  </div></div>
+
+  <!-- РАСКЛАДКА: крупное число -->
+  <div class="slide"><div class="s">
+    <div class="head"><span class="num"></span><span class="tag">Тема</span></div>
+    <div class="main">
+      <div class="big">8<small> сек</small></div>
+      <h2 class="sm">Столько человек смотрит на прайс, прежде чем решить</h2>
+      <p class="note">Источник: откуда взята цифра</p>
+    </div>
+    <div class="foot"><span class="user"></span><span class="bar"><i></i></span><span class="next"></span></div>
+  </div></div>
+
+  <!-- РАСКЛАДКА: сравнение в две колонки -->
+  <div class="slide"><div class="s">
+    <div class="head"><span class="num"></span><span class="tag">Тема</span></div>
+    <div class="main">
+      <h2>Одна услуга, два ценника</h2>
+      <div class="cols">
+        <div class="card"><span class="label">Было</span><p>Сайт под ключ, 10 страниц, адаптив, 3 правки</p></div>
+        <div class="card hot"><span class="label">Стало</span><p>Сайт, который приводит заявки с первой недели</p></div>
+      </div>
+      <p>Работа та же. Во втором случае клиент покупает результат.</p>
+    </div>
+    <div class="foot"><span class="user"></span><span class="bar"><i></i></span><span class="next"></span></div>
+  </div></div>
+
+  <!-- РАСКЛАДКА: шаги -->
+  <div class="slide"><div class="s">
+    <div class="head"><span class="num"></span><span class="tag">Тема</span></div>
+    <div class="main">
+      <h2>Как переписать прайс за вечер</h2>
+      <ol class="steps">
+        <li><span><b>Выпиши результаты</b>Что клиент получает в конце работы</span></li>
+        <li><span><b>Собери три тарифа</b>Минимум, основной, с запасом</span></li>
+        <li><span><b>Убери лишнее</b>Всё, о чём клиент не спрашивает</span></li>
+      </ol>
+    </div>
+    <div class="foot"><span class="user"></span><span class="bar"><i></i></span><span class="next"></span></div>
+  </div></div>
+
+  <!-- РАСКЛАДКА: цитата / главная мысль -->
+  <div class="slide"><div class="s alt">
+    <div class="head"><span class="num"></span><span class="tag">Тема</span></div>
+    <div class="main">
+      <div class="quote">Дорого — это когда <em>непонятно, за что</em></div>
+      <p class="note">Фраза клиента, после которой я переписала прайс</p>
+    </div>
+    <div class="foot"><span class="user"></span><span class="bar"><i></i></span><span class="next"></span></div>
+  </div></div>
+
+  <!-- РАСКЛАДКА: картинка блоком (img/… генерируется скиллом slide-image)
+  <div class="slide"><div class="s">
+    <div class="head"><span class="num"></span><span class="tag">Тема</span></div>
+    <div class="main top">
+      <h2>Заголовок</h2>
+      <div class="photo"><img src="img/03-name.png" alt=""></div>
+    </div>
+    <div class="foot">…</div>
+  </div></div>
+  -->
+
+  <!-- РАСКЛАДКА: картинка на весь слайд, текст внизу
+  <div class="slide"><div class="s bleed">
+    <div class="bg"><img src="img/01-cover.png" alt=""></div>
+    <div class="head"><span class="num"></span></div>
+    <div class="main bottom"><h1>Заголовок</h1></div>
+    <div class="foot">…</div>
+  </div></div>
+  -->
+
+  <!-- РАСКЛАДКА: CTA -->
+  <div class="slide"><div class="s accent">
+    <div class="head"><span class="num"></span><span class="tag">Тема</span></div>
+    <div class="main">
+      <h2>Сохрани, чтобы проверить свой прайс</h2>
+      <p>В профиле — разборы цен и упаковки для экспертов. Новый каждую неделю.</p>
+      <span class="btn">Подписаться</span>
+    </div>
+    <div class="foot"><span class="user"></span><span class="bar"><i></i></span><span class="next"></span></div>
+  </div></div>
+
+</div>
+
+<div class="nav"><button onclick="go(-1)">←</button><span id="counter"></span><button onclick="go(1)">→</button></div>
+
+<script>
+  const USER = '@username';          // ник аккаунта; пустая строка — ник не показывается
+  const NEXT = 'листай';             // подсказка на всех слайдах, кроме последнего (стрелка добавится сама)
+  const LAST = 'сохрани';            // подсказка на последнем слайде
+  const ARROW = ' <svg viewBox="0 0 30 16" width="1.15em" height=".62em" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:.02em"><path d="M1 8h27M21 1.5 28 8l-7 6.5"/></svg>';
+
+  const slides = [...document.querySelectorAll('.slide')];
+  const pad = n => String(n).padStart(2, '0');
+
+  slides.forEach((sl, n) => {
+    const set = (sel, text) => sl.querySelectorAll(sel).forEach(el => { if (!el.textContent.trim()) el.textContent = text; });
+    set('.num', pad(n + 1) + ' / ' + pad(slides.length));
+    set('.user', USER);
+    sl.querySelectorAll('.next').forEach(el => {
+      if (!el.textContent.trim()) el.innerHTML = n === slides.length - 1 ? LAST : NEXT + ARROW;
+    });
+    sl.querySelectorAll('.bar i').forEach(el => el.style.width = ((n + 1) / slides.length * 100) + '%');
+  });
+
+  // Русская типографика: короткие слова не висят в конце строки, тире, числа и дефисы не отрываются.
+  const NBSP = String.fromCharCode(160), WJ = String.fromCharCode(8288);
+  const LETTER = 'A-Za-zА-Яа-яЁё';
+  const reShort = new RegExp('(^|[ ' + NBSP + '(«„])([' + LETTER + ']{1,2}) (?=[^ ])', 'g');
+  const reHyphen = new RegExp('([' + LETTER + '])-(?=[' + LETTER + '])', 'g');
+  const reNum = new RegExp('([0-9]) (?=[' + LETTER + '%₽$€])', 'g');
+  const walker = document.createTreeWalker(document.querySelector('.viewer'), NodeFilter.SHOW_TEXT);
+  for (let node; (node = walker.nextNode());) {
+    let t = node.nodeValue;
+    for (let k = 0; k < 2; k++) t = t.replace(reShort, '$1$2' + NBSP);
+    t = t.replace(reHyphen, '$1-' + WJ).replace(/ (—|–)/g, NBSP + '$1').replace(reNum, '$1' + NBSP);
+    node.nodeValue = t;
+  }
+
+  let i = 0;
+  function render(){
+    slides.forEach((s, n) => s.classList.toggle('active', n === i));
+    document.getElementById('counter').textContent = pad(i + 1) + ' / ' + pad(slides.length);
+  }
+  function go(d){ i = (i + d + slides.length) % slides.length; render(); }
+  document.addEventListener('keydown', e => { if (e.key === 'ArrowRight') go(1); if (e.key === 'ArrowLeft') go(-1); });
+  render();
+</script>
+</body>
+</html>

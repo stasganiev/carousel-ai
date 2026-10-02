@@ -1,0 +1,9 @@
+{
+  "name": "carousel-png",
+  "private": true,
+  "type": "module",
+  "description": "Экспорт карусели HTML → PNG. Зависимость лежит рядом со скриптом, установка не нужна.",
+  "dependencies": {
+    "playwright-core": "^1.56.0"
+  }
+}

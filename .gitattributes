@@ -1,0 +1,7 @@
+# Единые переводы строк на Windows, macOS и Linux
+* text=auto eol=lf
+
+# Двоичные файлы
+*.woff2 binary
+*.png binary
+*.jpg binary
