@@ -62,6 +62,7 @@
   /* ===== 4. ТИПОГРАФИКА ===== */
   h1,h2,.big,.quote,.btn{font-family:var(--font-head);font-weight:var(--head-weight);letter-spacing:var(--head-tracking);}
   h1,h2{text-wrap:balance;}   /* длинное слово не рвём: экспорт сообщит, что оно не влезло, — тогда уменьши кегль (.sm) */
+  h1,h2,.quote{word-spacing:.09em;}   /* при плотном трекинге слова не должны слипаться на миниатюре */
   h1{font-size:112px;line-height:1.0;}
   h1.sm{font-size:92px;}
   h2{font-size:70px;line-height:1.06;}
@@ -69,7 +70,7 @@
   h1 em,h2 em,.quote em{font-style:normal;color:var(--c-accent);}
   p,li{font-size:40px;line-height:1.36;text-wrap:pretty;}
   .lead{font-size:44px;line-height:1.28;font-weight:500;color:var(--c-muted);}
-  .note{font-size:30px;line-height:1.35;color:var(--c-muted);}
+  .note{font-size:32px;line-height:1.35;color:var(--c-muted);}
   b,strong{font-weight:700;}
   mark{background:var(--c-accent);color:var(--c-on-accent);padding:0 .16em;border-radius:.18em;}
   .kicker{align-self:flex-start;font-size:26px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;

@@ -143,9 +143,13 @@ if (!fs.existsSync(htmlPath)) {
 }
 const outDir = path.resolve(process.argv[3] || path.join(path.dirname(htmlPath), 'png'));
 fs.mkdirSync(outDir, { recursive: true });
-// старые слайды убираем, чтобы после сокращения карусели не остались лишние файлы
+// Старые слайды убираем, чтобы после сокращения карусели не остались лишние файлы.
+// В некоторых средах (песочница Cowork) удаление запрещено — тогда файлы перезапишутся, а о лишних сообщим в конце.
+let cannotDelete = false;
 for (const f of fs.readdirSync(outDir)) {
-  if (/^slide-\d+\.png$/.test(f) || f === 'sheet.png') fs.unlinkSync(path.join(outDir, f));
+  if (/^slide-\d+\.png$/.test(f) || f === 'sheet.png') {
+    try { fs.unlinkSync(path.join(outDir, f)); } catch { cannotDelete = true; }
+  }
 }
 
 const browser = await launchBrowser();
@@ -281,6 +285,10 @@ await sheet.screenshot({ path: sheetFile, fullPage: true });
 await browser.close();
 
 console.log(`\nГотово: ${count} PNG ${SLIDE_W}×${SLIDE_H} + sheet.png`);
+if (cannotDelete) {
+  const stale = fs.readdirSync(outDir).filter(f => /^slide-\d+\.png$/.test(f) && Number(f.match(/\d+/)[0]) > count);
+  if (stale.length) console.log(`⚠ Остались файлы от прошлого экспорта, удалить их среда не дала: ${stale.join(', ')}. В публикацию идут только slide-01 … slide-${String(count).padStart(2, '0')}.`);
+}
 const badFonts = [...new Set([...fontErrors, ...fontMissing])];
 if (badFonts.length) console.log(`⚠ Шрифты не подключены или не загрузились: ${badFonts.join(', ')}. Скопируй их папки в fonts/ рядом с HTML.`);
 if (failed.length) console.log(`⚠ Не загрузились ресурсы:\n${[...new Set(failed)].map(u => '   ' + u).join('\n')}`);
