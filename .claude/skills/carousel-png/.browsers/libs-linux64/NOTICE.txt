@@ -1,0 +1,7 @@
+Системные библиотеки для запуска chrome-headless-shell в минимальных Linux-средах (x86-64),
+где их нет и установить их нельзя. Подключаются скриптом export-slides.mjs через LD_LIBRARY_PATH.
+
+Источник: пакеты Ubuntu 22.04 (archive.ubuntu.com), файлы не изменены.
+  libnspr4 4.35      — Mozilla Public License 2.0
+  libnss3 3.98       — Mozilla Public License 2.0
+  libasound2 1.2.6.1 — GNU LGPL 2.1
